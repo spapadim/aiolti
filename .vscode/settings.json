@@ -1,0 +1,4 @@
+{
+    "python.linting.pylintEnabled": true,
+    "python.pythonPath": "/Users/spapadim/work/classes/dev/aiolti/.venv/bin/python3.8"
+}
