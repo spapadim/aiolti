@@ -5,6 +5,9 @@ Common classes and methods for PyLTI module
 
 from __future__ import absolute_import
 
+import asyncio
+from functools import partial
+
 import logging
 import json
 import oauth2
@@ -52,7 +55,7 @@ LTI_SESSION_KEY = u'lti_authenticated'
 LTI_REQUEST_TYPE = [u'any', u'initial', u'session']
 
 
-def default_error(exception=None):
+async def default_error(exception=None):
     """Render simple error page.  This should be overidden in applications."""
     # pylint: disable=unused-argument
     log.exception("There was an LTI communication error")
@@ -142,8 +145,8 @@ class LTIPostMessageException(LTIException):
     pass
 
 
-def _post_patched_request(consumers, lti_key, body,
-                          url, method, content_type):
+async def _post_patched_request(consumers, lti_key, body,
+                                url, method, content_type):
     """
     Authorization header needs to be capitalized for some LTI clients
     this function ensures that header is capitalized
@@ -184,11 +187,18 @@ def _post_patched_request(consumers, lti_key, body,
 
     http._normalize_headers = my_normalize
     monkey_patch_function = normalize
-    response, content = client.request(
-        url,
-        method,
-        body=body.encode('utf-8'),
-        headers={'Content-Type': content_type})
+    response, content = \
+        await asyncio.get_running_loop().run_in_executor(None, partial(client.request, 
+            url,
+            method,
+            body=body.encode('utf-8'),
+            headers={'Content-Type': content_type}
+        ))
+    # response, content = client.request(
+    #     url,
+    #     method,
+    #     body=body.encode('utf-8'),
+    #     headers={'Content-Type': content_type})
 
     http = httplib2.Http
     # pylint: disable=protected-access
@@ -203,7 +213,7 @@ def _post_patched_request(consumers, lti_key, body,
     return response, content
 
 
-def post_message(consumers, lti_key, url, body):
+async def post_message(consumers, lti_key, url, body):
     """
         Posts a signed message to LTI consumer
 
@@ -215,7 +225,7 @@ def post_message(consumers, lti_key, url, body):
     """
     content_type = 'application/xml'
     method = 'POST'
-    (_, content) = _post_patched_request(
+    (_, content) = await _post_patched_request(
         consumers,
         lti_key,
         body,
@@ -229,7 +239,7 @@ def post_message(consumers, lti_key, url, body):
     return is_success
 
 
-def post_message2(consumers, lti_key, url, body,
+async def post_message2(consumers, lti_key, url, body,
                   method='POST', content_type='application/xml'):
     """
         Posts a signed message to LTI consumer using LTI 2.0 format
@@ -241,7 +251,7 @@ def post_message2(consumers, lti_key, url, body,
     :return: success
     """
     # pylint: disable=too-many-arguments
-    (response, _) = _post_patched_request(
+    (response, _) = await _post_patched_request(
         consumers,
         lti_key,
         body,
@@ -256,7 +266,7 @@ def post_message2(consumers, lti_key, url, body,
     return is_success
 
 
-def verify_request_common(consumers, url, method, headers, params):
+async def verify_request_common(consumers, url, method, headers, params):
     """
     Verifies that request is valid
 
@@ -304,7 +314,7 @@ def verify_request_common(consumers, url, method, headers, params):
         consumer = oauth_server.lookup_consumer(oauth_consumer_key)
         if not consumer:
             raise oauth2.Error('Invalid consumer.')
-        oauth_server.verify_request(oauth_request, consumer, None)
+        await oauth_server.verify_request(oauth_request, consumer, None)
     except oauth2.Error:
         # Rethrow our own for nice error handling (don't print
         # error message as it will contain the key
@@ -489,7 +499,7 @@ class LTIBase(object):
         else:
             return ''
 
-    def verify(self):
+    async def verify(self):
         """
         Verify if LTI request is valid, validation
         depends on @lti wrapper arguments
@@ -498,11 +508,11 @@ class LTIBase(object):
         """
         log.debug('verify request=%s', self.lti_kwargs.get('request'))
         if self.lti_kwargs.get('request') == 'session':
-            self._verify_session()
+            await self._verify_session()
         elif self.lti_kwargs.get('request') == 'initial':
-            self.verify_request()
+            await self.verify_request()
         elif self.lti_kwargs.get('request') == 'any':
-            self._verify_any()
+            await self._verify_any()
         else:
             raise LTIException("Unknown request type")
         return True
@@ -590,7 +600,7 @@ class LTIBase(object):
         if not (role == u'any' or self.is_role(self, role)):
             raise LTIRoleException('Not authorized.')
 
-    def post_grade(self, grade):
+    async def post_grade(self, grade):
         """
         Post grade to LTI consumer using XML
 
@@ -607,15 +617,15 @@ class LTIBase(object):
             xml = generate_request_xml(
                 message_identifier_id, operation, lis_result_sourcedid,
                 score)
-            ret = post_message(self._consumers(), self.key,
-                               self.response_url, xml)
+            ret = await post_message(self._consumers(), self.key,
+                                     self.response_url, xml)
             if not ret:
                 raise LTIPostMessageException("Post Message Failed")
             return True
 
         return False
 
-    def post_grade2(self, grade, user=None, comment=''):
+    async def post_grade2(self, grade, user=None, comment=''):
         """
         Post grade to LTI consumer using REST/JSON
         URL munging will is related to:
@@ -639,9 +649,9 @@ class LTIBase(object):
                 "resultScore": score,
                 "comment": comment
             })
-            ret = post_message2(self._consumers(), self.key, lti2_url, body,
-                                method='PUT',
-                                content_type=content_type)
+            ret = await post_message2(self._consumers(), self.key, lti2_url, body,
+                                      method='PUT',
+                                      content_type=content_type)
             if not ret:
                 raise LTIPostMessageException("Post Message Failed")
             return True

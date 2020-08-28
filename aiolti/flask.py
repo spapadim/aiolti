@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-    PyLTI decorator implementation for flask framework
+    aioLTI decorator implementation for Quart framework
 """
 from __future__ import absolute_import
 from functools import wraps
 import logging
 
-from flask import session, current_app, Flask
-from flask import request as flask_request
+from quart import session, current_app, Quart
+from quart import request as quart_request
 
 from .common import (
     LTI_SESSION_KEY,
@@ -20,7 +20,7 @@ from .common import (
 )
 
 
-log = logging.getLogger('pylti.flask')  # pylint: disable=invalid-name
+log = logging.getLogger('aiolti.quart')  # pylint: disable=invalid-name
 
 
 class LTI(LTIBase):
@@ -46,25 +46,25 @@ class LTI(LTIBase):
         :return: consumers map
         """
         app_config = self.lti_kwargs['app'].config
-        config = app_config.get('PYLTI_CONFIG', dict())
+        config = app_config.get('AIOLTI_CONFIG', dict())
         consumers = config.get('consumers', dict())
         return consumers
 
-    def verify_request(self):
+    async def verify_request(self):
         """
         Verify LTI request
         :raises: LTIException is request validation failed
         """
-        if flask_request.method == 'POST':
-            params = flask_request.form.to_dict()
+        if quart_request.method == 'POST':
+            params = quart_request.form.to_dict()
         else:
-            params = flask_request.args.to_dict()
+            params = quart_request.args.to_dict()
         log.debug(params)
         log.debug('verify_request?')
         try:
-            verify_request_common(self._consumers(), flask_request.url,
-                                  flask_request.method, flask_request.headers,
-                                  params)
+            await verify_request_common(self._consumers(), quart_request.url,
+                                        quart_request.method, quart_request.headers,
+                                        params)
             log.debug('verify_request success')
 
             # All good to go, store all of the LTI params into a
@@ -90,14 +90,14 @@ class LTI(LTIBase):
     def response_url(self):
         """
         Returns remapped lis_outcome_service_url
-        uses PYLTI_URL_FIX map to support edX dev-stack
+        uses AIOLTI_URL_FIX map to support edX dev-stack
 
         :return: remapped lis_outcome_service_url
         """
         url = ""
         url = self.session['lis_outcome_service_url']
         app_config = self.lti_kwargs['app'].config
-        urls = app_config.get('PYLTI_URL_FIX', dict())
+        urls = app_config.get('AIOLTI_URL_FIX', dict())
         # url remapping is useful for using devstack
         # devstack reports httpS://localhost:8000/ and listens on HTTP
         for prefix, mapping in urls.items():
@@ -106,7 +106,7 @@ class LTI(LTIBase):
                     url = url.replace(_from, _to)
         return url
 
-    def _verify_any(self):
+    async def _verify_any(self):
         """
         Verify that an initial request has been made, or failing that, that
         the request is in the session
@@ -116,8 +116,8 @@ class LTI(LTIBase):
 
         # Check to see if there is a new LTI launch request incoming
         newrequest = False
-        if flask_request.method == 'POST':
-            params = flask_request.form.to_dict()
+        if quart_request.method == 'POST':
+            params = quart_request.form.to_dict()
             initiation = "basic-lti-launch-request"
             if params.get("lti_message_type", None) == initiation:
                 newrequest = True
@@ -130,7 +130,7 @@ class LTI(LTIBase):
         # Attempt the appropriate validation
         # Both of these methods raise LTIException as necessary
         if newrequest:
-            self.verify_request()
+            await self.verify_request()
         else:
             self._verify_session()
 
@@ -156,17 +156,18 @@ class LTI(LTIBase):
         session[LTI_SESSION_KEY] = False
 
 
+# XXX WTH re: varargs?? - spapadim
 def lti(app=None, request='any', error=default_error, role='any',
         *lti_args, **lti_kwargs):
     """
     LTI decorator
 
-    :param: app - Flask App object (optional).
-        :py:attr:`flask.current_app` is used if no object is passed in.
+    :param: app - Quart App object (optional).
+        :py:attr:`quart.current_app` is used if no object is passed in
     :param: error - Callback if LTI throws exception (optional).
-        :py:attr:`pylti.flask.default_error` is the default.
+        :py:attr:`aiolti.quart.default_error` is the default.
     :param: request - Request type from
-        :py:attr:`pylti.common.LTI_REQUEST_TYPE`. (default: any)
+        :py:attr:`aiolti.common.LTI_REQUEST_TYPE`. (default: any)
     :param: roles - LTI Role (default: any)
     :return: wrapper
     """
@@ -180,7 +181,7 @@ def lti(app=None, request='any', error=default_error, role='any',
         """
 
         @wraps(function)
-        def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             """
             Pass LTI reference to function or return error.
             """
@@ -189,14 +190,14 @@ def lti(app=None, request='any', error=default_error, role='any',
                 the_lti.verify()
                 the_lti._check_role()  # pylint: disable=protected-access
                 kwargs['lti'] = the_lti
-                return function(*args, **kwargs)
+                return await function(*args, **kwargs)
             except LTIException as lti_exception:
                 error = lti_kwargs.get('error')
                 exception = dict()
                 exception['exception'] = lti_exception
                 exception['kwargs'] = kwargs
                 exception['args'] = args
-                return error(exception=exception)
+                return await error(exception=exception)
 
         return wrapper
 
@@ -204,10 +205,11 @@ def lti(app=None, request='any', error=default_error, role='any',
     lti_kwargs['error'] = error
     lti_kwargs['role'] = role
 
-    if (not app) or isinstance(app, Flask):
+    if (not app) or isinstance(app, Quart):
         lti_kwargs['app'] = app
         return _lti
     else:
         # We are wrapping without arguments
+        # XXX How/why/where??!? - spapadim
         lti_kwargs['app'] = None
         return _lti(app)

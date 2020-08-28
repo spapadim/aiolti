@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # Copyright 2009-2014 MIT ODL Engineering
+#           2020 Spiros Papadimitriou
 #
-# This file is part of PyLTI.
+# This file is part of PyLTI/aioLTI.
 #
 
 from __future__ import print_function
@@ -9,8 +10,8 @@ from __future__ import print_function
 import os
 import sys
 
-if sys.version_info < (2, 7):
-    error = "ERROR: PyLTI requires Python 2.7+ ... exiting."
+if sys.version_info < (3, 6):
+    error = "ERROR: aioLTI requires Python 3.6+ ... exiting."
     print(error, file=sys.stderr)
     sys.exit(1)
 
@@ -21,9 +22,9 @@ try:
     class PyTest(testcommand):
         user_options = testcommand.user_options[:]
         user_options += [
-            ('coverage', 'C', 'Produce a coverage report for PyLTI'),
-            ('pep8', 'P', 'Produce a pep8 report for PyLTI'),
-            ('flakes', 'F', 'Produce a flakes report for PyLTI'),
+            ('coverage', 'C', 'Produce a coverage report for aioLTI'),
+            ('pep8', 'P', 'Produce a pep8 report for aioLTI'),
+            ('flakes', 'F', 'Produce a flakes report for aioLTI'),
 
         ]
         coverage = None
@@ -41,7 +42,7 @@ try:
             self.test_args = []
             if self.coverage:
                 self.test_args.append('--cov')
-                self.test_args.append('pylti')
+                self.test_args.append('aiolti')
             if self.pep8:
                 self.test_args.append('--pep8')
             if self.flakes:
@@ -53,10 +54,10 @@ try:
             errno = pytest.main(self.test_args)
             sys.exit(errno)
 
-    extra = dict(test_suite="pylti.tests",
+    extra = dict(test_suite="aiolti.tests",
                  tests_require=["pytest-cov>=2.3.0", "pytest-pep8>=1.0.6",
                                 "pytest-flakes>=1.0.1", "pytest>=2.9.2",
-                                "httpretty>=0.8.3", "flask>=0.10.1",
+                                "httpretty>=0.8.3", "quart>=0.13.0",
                                 "oauthlib>=0.6.3", "semantic_version>=2.3.1",
                                 "mock==1.0.1"],
                  cmdclass={"test": PyTest},
@@ -116,21 +117,20 @@ except ImportError as err:
 
     extra = dict()
 
-VERSION = __import__('pylti').__version__
+VERSION = __import__('aiolti').__version__
 
 README = open('README.rst').read()
 
 setup(
-    name='PyLTI',
+    name='aioLTI',
     version=VERSION,
     packages=find_packages(),
-    package_data={'pylti.templates': ['web/*.*', 'web/css/*', 'web/js/*']},
+    package_data={'aiolti.templates': ['web/*.*', 'web/css/*', 'web/js/*']},
     license='BSD',
     author='MIT ODL Engineering',
-    author_email='odl-engineering@mit.edu',
-    url="http://github.com/mitodl/pylti",
-    description="PyLTI provides Python Implementation of IMS"
-                " LTI interface that works with edX",
+    author_email='spapadim@gmail.com',
+    url="http://github.com/spapadim/aiolti",
+    description="Fork of PyLTI by MITODL modified for asyncio",
     long_description=README,
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
