@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Test pylti/test_common.py module
+Test aiolti/test_common.py module
 """
 import unittest
 import semantic_version
@@ -10,8 +10,8 @@ import oauthlib.oauth1
 
 from six.moves.urllib.parse import urlencode, urlparse, parse_qs
 
-import pylti
-from pylti.common import (
+import aiolti
+from aiolti.common import (
     LTIOAuthServer,
     verify_request_common,
     LTIException,
@@ -19,7 +19,7 @@ from pylti.common import (
     post_message2,
     generate_request_xml
 )
-from pylti.tests.util import TEST_CLIENT_CERT
+from aiolti.tests.util import TEST_CLIENT_CERT
 
 
 class ExceptionHandler(object):
@@ -50,7 +50,7 @@ class ExceptionHandler(object):
         self.exception = None
 
 
-class TestCommon(unittest.TestCase):
+class TestCommon(unittest.IsolatedAsyncioTestCase):
     """
     Tests for common.py
     """
@@ -84,7 +84,7 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         """
         Will raise ValueError if not a semantic version
         """
-        semantic_version.Version(pylti.__version__)
+        semantic_version.Version(aiolti.__version__)
 
     def test_lti_oauth_server(self):
         """
@@ -116,7 +116,7 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         self.assertIsNone(store.lookup_consumer("key1"))
         self.assertIsNone(store.lookup_cert("key1"))
 
-    def test_verify_request_common(self):
+    async def test_verify_request_common(self):
         """
         verify_request_common succeeds on valid request
         """
@@ -124,11 +124,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         consumers, method, url, verify_params, _ = (
             self.generate_oauth_request()
         )
-        ret = verify_request_common(consumers, url, method,
-                                    headers, verify_params)
+        ret = await verify_request_common(consumers, url, method,
+                                          headers, verify_params)
         self.assertTrue(ret)
 
-    def test_verify_request_common_via_proxy(self):
+    async def test_verify_request_common_via_proxy(self):
         """
         verify_request_common succeeds on valid request via proxy
         """
@@ -139,11 +139,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             self.generate_oauth_request(url_to_sign=orig_url)
         )
 
-        ret = verify_request_common(consumers, url, method,
-                                    headers, verify_params)
+        ret = await verify_request_common(consumers, url, method,
+                                          headers, verify_params)
         self.assertTrue(ret)
 
-    def test_verify_request_common_via_proxy_wsgi_syntax(self):
+    async def test_verify_request_common_via_proxy_wsgi_syntax(self):
         """
         verify_request_common succeeds on valid request via proxy with
         wsgi syntax for headers
@@ -155,11 +155,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             self.generate_oauth_request(url_to_sign=orig_url)
         )
 
-        ret = verify_request_common(consumers, url, method,
-                                    headers, verify_params)
+        ret = await verify_request_common(consumers, url, method,
+                                          headers, verify_params)
         self.assertTrue(ret)
 
-    def test_verify_request_common_no_oauth_fields(self):
+    async def test_verify_request_common_no_oauth_fields(self):
         """
         verify_request_common fails on missing authentication
         """
@@ -168,9 +168,9 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             self.generate_oauth_request()
         )
         with self.assertRaises(LTIException):
-            verify_request_common(consumers, url, method, headers, params)
+            await verify_request_common(consumers, url, method, headers, params)
 
-    def test_verify_request_common_no_params(self):
+    async def test_verify_request_common_no_params(self):
         """
         verify_request_common fails on missing parameters
         """
@@ -182,10 +182,10 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         headers = dict()
         params = dict()
         with self.assertRaises(LTIException):
-            verify_request_common(consumers, url, method, headers, params)
+            await verify_request_common(consumers, url, method, headers, params)
 
     @httpretty.activate
-    def test_post_response_invalid_xml(self):
+    async def test_post_response_invalid_xml(self):
         """
         Test post message with invalid XML response
         """
@@ -205,11 +205,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             "__consumer_key__": {"secret": "__lti_secret__"}
         }
         body = '<xml></xml>'
-        ret = post_message(consumers, "__consumer_key__", uri, body)
+        ret = await post_message(consumers, "__consumer_key__", uri, body)
         self.assertFalse(ret)
 
     @httpretty.activate
-    def test_post_response_valid_xml(self):
+    async def test_post_response_valid_xml(self):
         """
         Test post grade with valid XML response
         """
@@ -231,10 +231,10 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         }
         body = generate_request_xml('message_identifier_id', 'operation',
                                     'lis_result_sourcedid', '1.0')
-        ret = post_message(consumers, "__consumer_key__", uri, body)
+        ret = await post_message(consumers, "__consumer_key__", uri, body)
         self.assertTrue(ret)
 
-        ret = post_message2(consumers, "__consumer_key__", uri, body)
+        ret = await post_message2(consumers, "__consumer_key__", uri, body)
         self.assertTrue(ret)
 
     def test_generate_xml(self):

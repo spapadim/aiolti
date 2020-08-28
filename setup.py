@@ -10,8 +10,8 @@ from __future__ import print_function
 import os
 import sys
 
-if sys.version_info < (3, 6):
-    error = "ERROR: aioLTI requires Python 3.6+ ... exiting."
+if sys.version_info < (3, 8):
+    error = "ERROR: aioLTI requires Python 3.8+ ... exiting."
     print(error, file=sys.stderr)
     sys.exit(1)
 

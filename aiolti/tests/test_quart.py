@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Test pylti/test_flask.py module
+Test aiolti/test_flask.py module
 """
 from __future__ import absolute_import
 import unittest
@@ -11,12 +11,12 @@ import oauthlib.oauth1
 
 from six.moves.urllib.parse import urlencode
 
-from pylti.common import LTIException
-from pylti.flask import LTI
-from pylti.tests.test_flask_app import app_exception, app
+from aiolti.common import LTIException
+from aiolti.quart import LTI
+from aiolti.tests.test_quart_app import app_exception, app
 
 
-class TestFlask(unittest.TestCase):
+class TestFlask(unittest.IsolatedAsyncioTestCase):
     """
     Consumers.
     """
@@ -56,8 +56,8 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         app.config['SERVER_NAME'] = 'localhost'
         app.config['WTF_CSRF_ENABLED'] = False
         app.config['SECRET_KEY'] = 'you-will-never-guess'
-        app.config['PYLTI_CONFIG'] = {'consumers': self.consumers}
-        app.config['PYLTI_URL_FIX'] = {
+        app.config['AIOLTI_CONFIG'] = {'consumers': self.consumers}
+        app.config['AIOLTI_URL_FIX'] = {
             "https://localhost:8000/": {
                 "https://localhost:8000/": "http://localhost:8000/"
             }
@@ -89,82 +89,82 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         """
         return "{}".format(TestFlask.get_exception())
 
-    def test_access_to_oauth_resource_unknown_protection(self):
+    async def test_access_to_oauth_resource_unknown_protection(self):
         """
         Invalid LTI request scope.
         """
-        self.app.get('/unknown_protection')
+        await self.app.get('/unknown_protection')
         self.assertTrue(self.has_exception())
         self.assertIsInstance(self.get_exception(), LTIException)
         self.assertEqual(self.get_exception_as_string(),
                          'Unknown request type')
 
-    def test_access_to_oauth_resource_without_authorization_any(self):
+    async def test_access_to_oauth_resource_without_authorization_any(self):
         """
         Accessing LTI without establishing session.
         """
-        self.app.get('/any')
+        await self.app.get('/any')
         self.assertTrue(self.has_exception())
         self.assertIsInstance(self.get_exception(), LTIException)
         self.assertEqual(self.get_exception_as_string(),
                          'Session expired or unavailable')
 
-    def test_access_to_oauth_resource_without_authorization_session(self):
+    async def test_access_to_oauth_resource_without_authorization_session(self):
         """
         Accessing LTI session scope before session established.
         """
-        self.app.get('/session')
+        await self.app.get('/session')
         self.assertTrue(self.has_exception())
         self.assertIsInstance(self.get_exception(), LTIException)
         self.assertEqual(self.get_exception_as_string(),
                          'Session expired or unavailable')
 
-    def test_access_to_oauth_resource_without_authorization_initial_get(self):
+    async def test_access_to_oauth_resource_without_authorization_initial_get(self):
         """
         Accessing LTI without basic-lti-launch-request parameters as GET.
         """
-        self.app.get('/initial')
+        await self.app.get('/initial')
         self.assertTrue(self.has_exception())
         self.assertIsInstance(self.get_exception(), LTIException)
         self.assertEqual(self.get_exception_as_string(),
                          'This page requires a valid oauth session or request')
 
-    def test_access_to_oauth_resource_without_authorization_initial_post(self):
+    async def test_access_to_oauth_resource_without_authorization_initial_post(self):
         """
         Accessing LTI without basic-lti-launch-request parameters as POST.
         """
-        self.app.post('/initial')
+        await self.app.post('/initial')
         self.assertTrue(self.has_exception())
         self.assertIsInstance(self.get_exception(), LTIException)
         self.assertEqual(self.get_exception_as_string(),
                          'This page requires a valid oauth session or request')
 
-    def test_access_to_oauth_resource_in_session(self):
+    async def test_access_to_oauth_resource_in_session(self):
         """
         Accessing LTI after session established.
         """
-        self.app.get('/setup_session')
+        await self.app.get('/setup_session')
 
-        self.app.get('/session')
+        await self.app.get('/session')
         self.assertFalse(self.has_exception())
 
-    def test_access_to_oauth_resource_in_session_with_close(self):
+    async def test_access_to_oauth_resource_in_session_with_close(self):
         """
         Accessing LTI after session closed.
         """
-        self.app.get('/setup_session')
+        await self.app.get('/setup_session')
 
-        self.app.get('/session')
+        await self.app.get('/session')
 
         self.assertFalse(self.has_exception())
 
-        self.app.get('/close_session')
+        await self.app.get('/close_session')
 
-        self.app.get('/session')
+        await self.app.get('/session')
 
         self.assertTrue(self.has_exception())
 
-    def test_access_to_oauth_resource(self):
+    async def test_access_to_oauth_resource(self):
         """
         Accessing oauth_resource.
         """
@@ -172,10 +172,10 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         url = 'http://localhost/initial?'
         new_url = self.generate_launch_request(consumers, url)
 
-        self.app.get(new_url)
+        await self.app.get(new_url)
         self.assertFalse(self.has_exception())
 
-    def test_access_to_oauth_resource_name_passed(self):
+    async def test_access_to_oauth_resource_name_passed(self):
         """
         Check that name is returned if passed via initial request.
         """
@@ -187,11 +187,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             consumers, url, add_params=add_params
         )
 
-        ret = self.app.get(new_url)
+        await ret = self.app.get(new_url)
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), u'person')
 
-    def test_access_to_oauth_resource_email_passed(self):
+    async def test_access_to_oauth_resource_email_passed(self):
         """
         Check that email is returned if passed via initial request.
         """
@@ -203,11 +203,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             consumers, url, add_params=add_params
         )
 
-        ret = self.app.get(new_url)
+        ret = await self.app.get(new_url)
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), u'email@email.com')
 
-    def test_access_to_oauth_resource_name_and_email_passed(self):
+    async def test_access_to_oauth_resource_name_and_email_passed(self):
         """
         Check that name is returned if both email and name passed.
         """
@@ -220,11 +220,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             consumers, url, add_params=add_params
         )
 
-        ret = self.app.get(new_url)
+        ret = await self.app.get(new_url)
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), u'person')
 
-    def test_access_to_oauth_resource_staff_only_as_student(self):
+    async def test_access_to_oauth_resource_staff_only_as_student(self):
         """
         Deny access if user not in role.
         """
@@ -233,16 +233,16 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         student_url = self.generate_launch_request(
             consumers, url, roles='Student'
         )
-        self.app.get(student_url)
+        await self.app.get(student_url)
         self.assertTrue(self.has_exception())
 
         learner_url = self.generate_launch_request(
             consumers, url, roles='Learner'
         )
-        self.app.get(learner_url)
+        await self.app.get(learner_url)
         self.assertTrue(self.has_exception())
 
-    def test_access_to_oauth_resource_staff_only_as_administrator(self):
+    async def test_access_to_oauth_resource_staff_only_as_administrator(self):
         """
         Allow access if user in role.
         """
@@ -252,10 +252,10 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             consumers, url, roles='Administrator'
         )
 
-        self.app.get(new_url)
+        await self.app.get(new_url)
         self.assertFalse(self.has_exception())
 
-    def test_access_to_oauth_resource_staff_only_as_unknown_role(self):
+    async def test_access_to_oauth_resource_staff_only_as_unknown_role(self):
         """
         Deny access if role not defined.
         """
@@ -265,10 +265,10 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             consumers, url, roles='Foo'
         )
 
-        self.app.get(admin_url)
+        await self.app.get(admin_url)
         self.assertTrue(self.has_exception())
 
-    def test_access_to_oauth_resource_student_as_student(self):
+    async def test_access_to_oauth_resource_student_as_student(self):
         """
         Verify that the various roles we consider as students are students.
         """
@@ -279,33 +279,33 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         learner_url = self.generate_launch_request(
             consumers, url, roles='Learner'
         )
-        self.app.get(learner_url)
+        await self.app.get(learner_url)
         self.assertFalse(self.has_exception())
 
         student_url = self.generate_launch_request(
             consumers, url, roles='Student'
         )
-        self.app.get(student_url)
+        await self.app.get(student_url)
         self.assertFalse(self.has_exception())
 
-    def test_access_to_oauth_resource_student_as_staff(self):
+    awync def test_access_to_oauth_resource_student_as_staff(self):
         """Verify staff doesn't have access to student only."""
         consumers = self.consumers
         url = 'http://localhost/initial_student?'
         staff_url = self.generate_launch_request(
             consumers, url, roles='Instructor'
         )
-        self.app.get(staff_url)
+        await self.app.get(staff_url)
         self.assertTrue(self.has_exception())
 
-    def test_access_to_oauth_resource_student_as_unknown(self):
+    async def test_access_to_oauth_resource_student_as_unknown(self):
         """Verify staff doesn't have access to student only."""
         consumers = self.consumers
         url = 'http://localhost/initial_student?'
         unknown_url = self.generate_launch_request(
             consumers, url, roles='FooBar'
         )
-        self.app.get(unknown_url)
+        await self.app.get(unknown_url)
         self.assertTrue(self.has_exception())
 
     @staticmethod
@@ -365,35 +365,35 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         new_url = signed_url[len('http://localhost'):]
         return new_url
 
-    def test_access_to_oauth_resource_any(self):
+    async def test_access_to_oauth_resource_any(self):
         """
         Test access to LTI protected resources.
         """
         url = 'http://localhost/any?'
         new_url = self.generate_launch_request(self.consumers, url)
-        self.app.post(new_url)
+        await self.app.post(new_url)
         self.assertFalse(self.has_exception())
 
-    def test_access_to_oauth_resource_any_norole(self):
+    async def test_access_to_oauth_resource_any_norole(self):
         """
         Test access to LTI protected resources.
         """
         url = 'http://localhost/any?'
         new_url = self.generate_launch_request(self.consumers, url, roles=None)
-        self.app.post(new_url)
+        await self.app.post(new_url)
         self.assertFalse(self.has_exception())
 
-    def test_access_to_oauth_resource_any_nonstandard_role(self):
+    async def test_access_to_oauth_resource_any_nonstandard_role(self):
         """
         Test access to LTI protected resources.
         """
         url = 'http://localhost/any?'
         new_url = self.generate_launch_request(self.consumers, url,
                                                roles=u'ThisIsNotAStandardRole')
-        self.app.post(new_url)
+        await self.app.post(new_url)
         self.assertFalse(self.has_exception())
 
-    def test_access_to_oauth_resource_invalid(self):
+    async def test_access_to_oauth_resource_invalid(self):
         """
         Deny access to LTI protected resources
         on man in the middle attack.
@@ -401,31 +401,31 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         url = 'http://localhost/initial?'
         new_url = self.generate_launch_request(self.consumers, url)
 
-        self.app.get("{}&FAIL=TRUE".format(new_url))
+        await self.app.get("{}&FAIL=TRUE".format(new_url))
         self.assertTrue(self.has_exception())
         self.assertIsInstance(self.get_exception(), LTIException)
         self.assertEqual(self.get_exception_as_string(),
                          'OAuth error: Please check your key and secret')
 
-    def test_access_to_oauth_resource_invalid_after_session_setup(self):
+    async def test_access_to_oauth_resource_invalid_after_session_setup(self):
         """
         Remove browser session on man in the middle attach.
         """
-        self.app.get('/setup_session')
-        self.app.get('/session')
+        await self.app.get('/setup_session')
+        await self.app.get('/session')
         self.assertFalse(self.has_exception())
 
         url = 'http://localhost/initial?'
         new_url = self.generate_launch_request(self.consumers, url)
 
-        self.app.get("{}&FAIL=TRUE".format(new_url))
+        await self.app.get("{}&FAIL=TRUE".format(new_url))
         self.assertTrue(self.has_exception())
         self.assertIsInstance(self.get_exception(), LTIException)
         self.assertEqual(self.get_exception_as_string(),
                          'OAuth error: Please check your key and secret')
 
     @httpretty.activate
-    def test_access_to_oauth_resource_post_grade(self):
+    async def test_access_to_oauth_resource_post_grade(self):
         """
         Check post_grade functionality.
         """
@@ -441,19 +441,19 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         url = 'http://localhost/initial?'
         new_url = self.generate_launch_request(consumers, url)
 
-        ret = self.app.get(new_url)
+        ret = await self.app.get(new_url)
         self.assertFalse(self.has_exception())
 
-        ret = self.app.get("/post_grade/1.0")
+        ret = await self.app.get("/post_grade/1.0")
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "grade=True")
 
-        ret = self.app.get("/post_grade/2.0")
+        ret = await self.app.get("/post_grade/2.0")
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "grade=False")
 
     @httpretty.activate
-    def test_access_to_oauth_resource_post_grade_fail(self):
+    async def test_access_to_oauth_resource_post_grade_fail(self):
         """
         Check post_grade functionality fails on invalid response.
         """
@@ -475,16 +475,16 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         consumers = self.consumers
         url = 'http://localhost/initial?'
         new_url = self.generate_launch_request(consumers, url)
-        ret = self.app.get(new_url)
+        ret = await self.app.get(new_url)
         self.assertFalse(self.has_exception())
         self.assertFalse(self.has_exception())
 
-        ret = self.app.get("/post_grade/1.0")
+        ret = await self.app.get("/post_grade/1.0")
         self.assertTrue(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "error")
 
     @httpretty.activate
-    def test_access_to_oauth_resource_post_grade_fix_url(self):
+    async def test_access_to_oauth_resource_post_grade_fix_url(self):
         """
         Make sure URL remap works for edX vagrant stack.
         """
@@ -497,19 +497,19 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         new_url = self.generate_launch_request(
             self.consumers, url, lit_outcome_service_url=uri
         )
-        ret = self.app.get(new_url)
+        ret = await self.app.get(new_url)
         self.assertFalse(self.has_exception())
 
-        ret = self.app.get("/post_grade/1.0")
+        ret = await self.app.get("/post_grade/1.0")
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "grade=True")
 
-        ret = self.app.get("/post_grade/2.0")
+        ret = await self.app.get("/post_grade/2.0")
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "grade=False")
 
     @httpretty.activate
-    def test_access_to_oauth_resource_post_grade2(self):
+    async def test_access_to_oauth_resource_post_grade2(self):
         """
         Check post_grade edX LTI2 functionality.
         """
@@ -525,14 +525,14 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         url = 'http://localhost/initial?'
         new_url = self.generate_launch_request(consumers, url)
 
-        ret = self.app.get(new_url)
+        ret = await self.app.get(new_url)
         self.assertFalse(self.has_exception())
 
-        ret = self.app.get("/post_grade2/1.0")
+        ret = await self.app.get("/post_grade2/1.0")
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "grade=True")
 
-        ret = self.app.get("/post_grade2/2.0")
+        ret = await self.app.get("/post_grade2/2.0")
         self.assertFalse(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "grade=False")
 
@@ -544,7 +544,7 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         return 200, headers, self.expected_response
 
     @httpretty.activate
-    def test_access_to_oauth_resource_post_grade2_fail(self):
+    async def test_access_to_oauth_resource_post_grade2_fail(self):
         """
         Check post_grade edX LTI2 functionality
         """
@@ -567,40 +567,40 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         url = 'http://localhost/initial?'
         new_url = self.generate_launch_request(consumers, url)
 
-        ret = self.app.get(new_url)
+        ret = await self.app.get(new_url)
         self.assertFalse(self.has_exception())
 
-        ret = self.app.get("/post_grade2/1.0")
+        ret = await self.app.get("/post_grade2/1.0")
         self.assertTrue(self.has_exception())
         self.assertEqual(ret.data.decode('utf-8'), "error")
 
     @mock.patch.object(LTI, '_check_role')
     @mock.patch.object(LTI, 'verify')
-    def test_decorator_no_app(self, mock_verify, _):
+    async def test_decorator_no_app(self, mock_verify, _):
         """Verify the decorator doesn't require the app object."""
         # pylint: disable=maybe-no-member
         mock_verify.return_value = True
-        response = self.app.get('/no_app')
+        response = await self.app.get('/no_app')
         self.assertEqual(200, response.status_code)
         self.assertEqual('hi', response.data.decode('utf-8'))
 
-    def test_default_decorator(self):
+    async def test_default_decorator(self):
         """
         Verify default decorator works.
         """
         url = 'http://localhost/default_lti?'
         new_url = self.generate_launch_request(self.consumers, url)
-        self.app.get(new_url)
+        await self.app.get(new_url)
         self.assertFalse(self.has_exception())
 
-    def test_default_decorator_bad(self):
+    async def test_default_decorator_bad(self):
         """
         Verify error handling works.
         """
         # Validate we get our error page when there is a bad LTI
         # request
         # pylint: disable=maybe-no-member
-        response = self.app.get('/default_lti')
+        response = await self.app.get('/default_lti')
         self.assertEqual(500, response.status_code)
         self.assertEqual("There was an LTI communication error",
                          response.data.decode('utf-8'))

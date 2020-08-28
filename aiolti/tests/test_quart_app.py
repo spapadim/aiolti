@@ -1,13 +1,13 @@
 """
 Test pylti/test_flask_app.py module
 """
-from flask import Flask, session
+from quart import Quart, session
 
-from pylti.flask import lti as lti_flask
-from pylti.common import LTI_SESSION_KEY
-from pylti.tests.test_common import ExceptionHandler
+from aiolti.quart import lti as lti_quart
+from aiolti.common import LTI_SESSION_KEY
+from aiolti.tests.test_common import ExceptionHandler
 
-app = Flask(__name__)  # pylint: disable=invalid-name
+app = Quart(__name__)  # pylint: disable=invalid-name
 app_exception = ExceptionHandler()  # pylint: disable=invalid-name
 
 
@@ -20,8 +20,8 @@ def error(exception):
 
 
 @app.route("/unknown_protection")
-@lti_flask(error=error, app=app, request='notreal')
-def unknown_protection(lti):
+@lti_quart(error=error, app=app, request='notreal')
+async def unknown_protection(lti):
     # pylint: disable=unused-argument,
     """
     Access route with unknown protection.
@@ -33,8 +33,8 @@ def unknown_protection(lti):
 
 
 @app.route("/no_app")
-@lti_flask(error=error)
-def no_app(lti):
+@lti_quart(error=error)
+async def no_app(lti):
     # pylint: disable=unused-argument,
     """
     Use decorator without specifying LTI, raise exception.
@@ -51,8 +51,8 @@ def no_app(lti):
 
 
 @app.route("/any")
-@lti_flask(error=error, request='any', app=app)
-def any_route(lti):
+@lti_quart(error=error, request='any', app=app)
+async def any_route(lti):
     # pylint: disable=unused-argument,
     """
     Access route with 'any' request.
@@ -64,8 +64,8 @@ def any_route(lti):
 
 
 @app.route("/session")
-@lti_flask(error=error, request='session', app=app)
-def session_route(lti):
+@lti_quart(error=error, request='session', app=app)
+async def session_route(lti):
     # pylint: disable=unused-argument,
     """
     Access route with 'session' request.
@@ -77,8 +77,8 @@ def session_route(lti):
 
 
 @app.route("/initial", methods=['GET', 'POST'])
-@lti_flask(error=error, request='initial', app=app)
-def initial_route(lti):
+@lti_quart(error=error, request='initial', app=app)
+async def initial_route(lti):
     # pylint: disable=unused-argument,
     """
     Access route with 'initial' request.
@@ -90,8 +90,8 @@ def initial_route(lti):
 
 
 @app.route("/name", methods=['GET', 'POST'])
-@lti_flask(error=error, request='initial', app=app)
-def name(lti):
+@lti_quart(error=error, request='initial', app=app)
+async def name(lti):
     """
     Access route with 'initial' request.
 
@@ -102,8 +102,8 @@ def name(lti):
 
 
 @app.route("/initial_staff", methods=['GET', 'POST'])
-@lti_flask(error=error, request='initial', role='staff', app=app)
-def initial_staff_route(lti):
+@lti_quart(error=error, request='initial', role='staff', app=app)
+async def initial_staff_route(lti):
     # pylint: disable=unused-argument,
     """
     Access route with 'initial' request and 'staff' role.
@@ -115,8 +115,8 @@ def initial_staff_route(lti):
 
 
 @app.route("/initial_student", methods=['GET', 'POST'])
-@lti_flask(error=error, request='initial', role='student', app=app)
-def initial_student_route(lti):
+@lti_quart(error=error, request='initial', role='student', app=app)
+async def initial_student_route(lti):
     # pylint: disable=unused-argument,
     """
     Access route with 'initial' request and 'student' role.
@@ -128,8 +128,8 @@ def initial_student_route(lti):
 
 
 @app.route("/initial_unknown", methods=['GET', 'POST'])
-@lti_flask(error=error, request='initial', role='unknown', app=app)
-def initial_unknown_route(lti):
+@lti_quart(error=error, request='initial', role='unknown', app=app)
+async def initial_unknown_route(lti):
     # pylint: disable=unused-argument,
     """
     Access route with 'initial' request and 'unknown' role.
@@ -141,7 +141,7 @@ def initial_unknown_route(lti):
 
 
 @app.route("/setup_session")
-def setup_session():
+async def setup_session():
     """
     Access 'setup_session' route with 'Student' role and oauth_consumer_key.
 
@@ -154,8 +154,8 @@ def setup_session():
 
 
 @app.route("/close_session")
-@lti_flask(error=error, request='session', app=app)
-def logout_route(lti):
+@lti_quart(error=error, request='session', app=app)
+async def logout_route(lti):
     """
     Access 'close_session' route.
 
@@ -167,34 +167,34 @@ def logout_route(lti):
 
 
 @app.route("/post_grade/<float:grade>")
-@lti_flask(error=error, request='session', app=app)
-def post_grade(grade, lti):
+@lti_quart(error=error, request='session', app=app)
+async def post_grade(grade, lti):
     """
     Access route with 'session' request.
 
     :param lti: `lti` object
     :return: string "grade={}"
     """
-    ret = lti.post_grade(grade)
+    ret = await lti.post_grade(grade)
     return "grade={}".format(ret)
 
 
 @app.route("/post_grade2/<float:grade>")
-@lti_flask(error=error, request='session', app=app)
-def post_grade2(grade, lti):
+@lti_quart(error=error, request='session', app=app)
+async def post_grade2(grade, lti):
     """
     Access route with 'session' request.
 
     :param lti: `lti` object
     :return: string "grade={}"
     """
-    ret = lti.post_grade2(grade)
+    ret = await lti.post_grade2(grade)
     return "grade={}".format(ret)
 
 
 @app.route("/default_lti")
-@lti_flask
-def default_lti(lti=lti_flask):
+@lti_quart
+async def default_lti(lti=lti_quart):
     # pylint: disable=unused-argument,
     """
     Make sure default LTI decorator works.
