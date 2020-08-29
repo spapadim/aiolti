@@ -13,7 +13,6 @@ import oauthlib.oauth1
 from six.moves.urllib.parse import urlencode
 
 from quart.testing import QuartClient
-from quart import session  # XXX temporary
 
 from aiolti.common import LTIException
 from aiolti.quart import LTI

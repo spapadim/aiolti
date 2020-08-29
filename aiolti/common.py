@@ -496,6 +496,11 @@ class LTIBase(ABC):
         else:
             return ''
 
+    # TODO Apparently, that's not how to do "abstract properties"
+    #   ABC still complains if we just assign, e.g., "self.session = ..." in the
+    #   constructor.  Before I just add boilerplate (properties with setters)
+    #   in subclasses, need to RTFM and see what is the "right" way.
+
     # @property
     # @abstractmethod
     # def session(self):

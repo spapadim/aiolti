@@ -168,7 +168,7 @@ class LTI(LTIBase):
         session[LTI_SESSION_KEY] = False
 
 
-# XXX WTH re: varargs?? - spapadim
+# XXX WTH re: varargs after optional args?? - spapadim
 def lti(app=None, request='any', role='any',
         *lti_args, **lti_kwargs):
     """
@@ -182,6 +182,8 @@ def lti(app=None, request='any', role='any',
     :return: wrapper
     """
 
+    # XXX - Why is this nested? So a partial bind can be done (but: see comments
+    #   below -- also, could use functools.partial, if still really necesasry..)
     def _lti(function):
         """
         Inner LTI decorator
@@ -214,6 +216,8 @@ def lti(app=None, request='any', role='any',
         return _lti
     else:
         # We are wrapping without arguments
-        # XXX How/why/where??!? - spapadim
+        # XXX What is this?? If I'm getting this straight, seems like the decorator 
+        #   can also be used as.. not decorator? If so, should just instantiate
+        #   "lti = LTI(app)" once, globally... actually, should do that anyway -- spapadim
         lti_kwargs['app'] = None
         return _lti(app)
