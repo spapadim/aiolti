@@ -4,23 +4,29 @@ Test pylti/test_flask_app.py module
 from quart import Quart, session
 
 from aiolti.quart import lti as lti_quart
+from aiolti.quart import LTIRequestError
 from aiolti.common import LTI_SESSION_KEY
 from aiolti.tests.test_common import ExceptionHandler
 
 app = Quart(__name__)  # pylint: disable=invalid-name
 app_exception = ExceptionHandler()  # pylint: disable=invalid-name
 
+# Key for cookie-based sessions
+app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+app.config["SESSION_COOKIE_DOMAIN"] = ".local"  # This is critical for sessions to work with mocket !!
 
-def error(exception):
+@app.errorhandler(LTIRequestError)
+def lti_error(exc: LTIRequestError):
     """
     Set exception to exception handler and returns error string.
     """
-    app_exception.set(exception)
-    return "error"
+    app_exception.set(exc.lti_exception)
+    print(f"error: lti_exception = {exc.lti_exception}")
+    return "error", 500
 
 
 @app.route("/unknown_protection")
-@lti_quart(error=error, app=app, request='notreal')
+@lti_quart(app=app, request='notreal')
 async def unknown_protection(lti):
     # pylint: disable=unused-argument,
     """
@@ -33,7 +39,7 @@ async def unknown_protection(lti):
 
 
 @app.route("/no_app")
-@lti_quart(error=error)
+@lti_quart()
 async def no_app(lti):
     # pylint: disable=unused-argument,
     """
@@ -51,7 +57,7 @@ async def no_app(lti):
 
 
 @app.route("/any")
-@lti_quart(error=error, request='any', app=app)
+@lti_quart(request='any', app=app)
 async def any_route(lti):
     # pylint: disable=unused-argument,
     """
@@ -64,7 +70,7 @@ async def any_route(lti):
 
 
 @app.route("/session")
-@lti_quart(error=error, request='session', app=app)
+@lti_quart(request='session', app=app)
 async def session_route(lti):
     # pylint: disable=unused-argument,
     """
@@ -77,7 +83,7 @@ async def session_route(lti):
 
 
 @app.route("/initial", methods=['GET', 'POST'])
-@lti_quart(error=error, request='initial', app=app)
+@lti_quart(request='initial', app=app)
 async def initial_route(lti):
     # pylint: disable=unused-argument,
     """
@@ -90,7 +96,7 @@ async def initial_route(lti):
 
 
 @app.route("/name", methods=['GET', 'POST'])
-@lti_quart(error=error, request='initial', app=app)
+@lti_quart(request='initial', app=app)
 async def name(lti):
     """
     Access route with 'initial' request.
@@ -102,7 +108,7 @@ async def name(lti):
 
 
 @app.route("/initial_staff", methods=['GET', 'POST'])
-@lti_quart(error=error, request='initial', role='staff', app=app)
+@lti_quart(request='initial', role='staff', app=app)
 async def initial_staff_route(lti):
     # pylint: disable=unused-argument,
     """
@@ -115,7 +121,7 @@ async def initial_staff_route(lti):
 
 
 @app.route("/initial_student", methods=['GET', 'POST'])
-@lti_quart(error=error, request='initial', role='student', app=app)
+@lti_quart(request='initial', role='student', app=app)
 async def initial_student_route(lti):
     # pylint: disable=unused-argument,
     """
@@ -128,7 +134,7 @@ async def initial_student_route(lti):
 
 
 @app.route("/initial_unknown", methods=['GET', 'POST'])
-@lti_quart(error=error, request='initial', role='unknown', app=app)
+@lti_quart(request='initial', role='unknown', app=app)
 async def initial_unknown_route(lti):
     # pylint: disable=unused-argument,
     """
@@ -154,7 +160,7 @@ async def setup_session():
 
 
 @app.route("/close_session")
-@lti_quart(error=error, request='session', app=app)
+@lti_quart(request='session', app=app)
 async def logout_route(lti):
     """
     Access 'close_session' route.
@@ -167,7 +173,7 @@ async def logout_route(lti):
 
 
 @app.route("/post_grade/<float:grade>")
-@lti_quart(error=error, request='session', app=app)
+@lti_quart(request='session', app=app)
 async def post_grade(grade, lti):
     """
     Access route with 'session' request.
@@ -180,7 +186,7 @@ async def post_grade(grade, lti):
 
 
 @app.route("/post_grade2/<float:grade>")
-@lti_quart(error=error, request='session', app=app)
+@lti_quart(request='session', app=app)
 async def post_grade2(grade, lti):
     """
     Access route with 'session' request.

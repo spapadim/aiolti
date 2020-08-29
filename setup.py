@@ -57,11 +57,11 @@ try:
     extra = dict(test_suite="aiolti.tests",
                  tests_require=["pytest-cov>=2.3.0", "pytest-pep8>=1.0.6",
                                 "pytest-flakes>=1.0.1", "pytest>=2.9.2",
-                                "httpretty>=0.8.3", "quart>=0.13.0",
+                                "mocket>=3.8.8", "quart>=0.13.0",
                                 "oauthlib>=0.6.3", "semantic_version>=2.3.1",
                                 "mock==1.0.1"],
                  cmdclass={"test": PyTest},
-                 install_requires=["oauth2>=1.9.0.post1", "httplib2>=0.9", "six>=1.10.0"],
+                 install_requires=["oauth2>=1.9.0.post1", "httplib2>=0.9", "six>=1.15.0"],
                  include_package_data=True,
                  zip_safe=False)
 except ImportError as err:

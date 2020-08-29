@@ -7,13 +7,13 @@ from functools import wraps
 import logging
 
 from quart import session, current_app, Quart
+from quart.exceptions import BadRequest
 from quart import request as quart_request
 
 from .common import (
     LTI_SESSION_KEY,
     LTI_PROPERTY_LIST,
     verify_request_common,
-    default_error,
     LTIException,
     LTINotInSessionException,
     LTIBase
@@ -21,6 +21,16 @@ from .common import (
 
 
 log = logging.getLogger('aiolti.quart')  # pylint: disable=invalid-name
+
+
+class LTIRequestError(BadRequest):
+    def __init__(self, lti_exception: LTIException = None):
+        super().__init__()
+        self.lti_exception = lti_exception
+        if lti_exception is not None and len(lti_exception.args) > 0:
+            self.description = f"LTI Error: {lti_exception.args[0]}"
+        else:
+            self.description = "Unknown LTI Error"
 
 
 class LTI(LTIBase):
@@ -50,22 +60,23 @@ class LTI(LTIBase):
         consumers = config.get('consumers', dict())
         return consumers
 
-    async def verify_request(self):
+    async def _verify_request(self):
         """
         Verify LTI request
         :raises: LTIException is request validation failed
         """
         if quart_request.method == 'POST':
-            params = quart_request.form.to_dict()
+            form = await quart_request.form
+            params = form.to_dict()
         else:
             params = quart_request.args.to_dict()
         log.debug(params)
-        log.debug('verify_request?')
+        log.debug('_verify_request?')
         try:
-            await verify_request_common(self._consumers(), quart_request.url,
-                                        quart_request.method, quart_request.headers,
-                                        params)
-            log.debug('verify_request success')
+            verify_request_common(self._consumers(), quart_request.url,
+                                  quart_request.method, quart_request.headers,
+                                  params)
+            log.debug('_verify_request success')
 
             # All good to go, store all of the LTI params into a
             # session dict for use in views
@@ -78,7 +89,7 @@ class LTI(LTIBase):
             session[LTI_SESSION_KEY] = True
             return True
         except LTIException:
-            log.debug('verify_request failed')
+            log.debug('_verify_request failed')
             for prop in LTI_PROPERTY_LIST:
                 if session.get(prop, None):
                     del session[prop]
@@ -117,7 +128,8 @@ class LTI(LTIBase):
         # Check to see if there is a new LTI launch request incoming
         newrequest = False
         if quart_request.method == 'POST':
-            params = quart_request.form.to_dict()
+            form = await quart_request.form
+            params = form.to_dict()
             initiation = "basic-lti-launch-request"
             if params.get("lti_message_type", None) == initiation:
                 newrequest = True
@@ -130,7 +142,7 @@ class LTI(LTIBase):
         # Attempt the appropriate validation
         # Both of these methods raise LTIException as necessary
         if newrequest:
-            await self.verify_request()
+            self._verify_request()
         else:
             self._verify_session()
 
@@ -157,15 +169,13 @@ class LTI(LTIBase):
 
 
 # XXX WTH re: varargs?? - spapadim
-def lti(app=None, request='any', error=default_error, role='any',
+def lti(app=None, request='any', role='any',
         *lti_args, **lti_kwargs):
     """
     LTI decorator
 
     :param: app - Quart App object (optional).
         :py:attr:`quart.current_app` is used if no object is passed in
-    :param: error - Callback if LTI throws exception (optional).
-        :py:attr:`aiolti.quart.default_error` is the default.
     :param: request - Request type from
         :py:attr:`aiolti.common.LTI_REQUEST_TYPE`. (default: any)
     :param: roles - LTI Role (default: any)
@@ -187,22 +197,16 @@ def lti(app=None, request='any', error=default_error, role='any',
             """
             try:
                 the_lti = LTI(lti_args, lti_kwargs)
-                the_lti.verify()
+                await the_lti.verify()
                 the_lti._check_role()  # pylint: disable=protected-access
                 kwargs['lti'] = the_lti
                 return await function(*args, **kwargs)
             except LTIException as lti_exception:
-                error = lti_kwargs.get('error')
-                exception = dict()
-                exception['exception'] = lti_exception
-                exception['kwargs'] = kwargs
-                exception['args'] = args
-                return await error(exception=exception)
+                raise LTIRequestError(lti_exception=lti_exception)
 
         return wrapper
 
     lti_kwargs['request'] = request
-    lti_kwargs['error'] = error
     lti_kwargs['role'] = role
 
     if (not app) or isinstance(app, Quart):

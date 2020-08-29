@@ -5,7 +5,7 @@ Test aiolti/test_common.py module
 import unittest
 import semantic_version
 
-import httpretty
+from mocket.plugins import httpretty
 import oauthlib.oauth1
 
 from six.moves.urllib.parse import urlencode, urlparse, parse_qs
@@ -38,10 +38,7 @@ class ExceptionHandler(object):
         """
         Return exception if not None otherwise returns None.
         """
-        if self.exception is None:
-            return None
-        else:
-            return self.exception['exception']
+        return self.exception
 
     def reset(self):
         """
@@ -116,7 +113,7 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         self.assertIsNone(store.lookup_consumer("key1"))
         self.assertIsNone(store.lookup_cert("key1"))
 
-    async def test_verify_request_common(self):
+    def test_verify_request_common(self):
         """
         verify_request_common succeeds on valid request
         """
@@ -124,11 +121,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         consumers, method, url, verify_params, _ = (
             self.generate_oauth_request()
         )
-        ret = await verify_request_common(consumers, url, method,
-                                          headers, verify_params)
+        ret = verify_request_common(consumers, url, method,
+                                    headers, verify_params)
         self.assertTrue(ret)
 
-    async def test_verify_request_common_via_proxy(self):
+    def test_verify_request_common_via_proxy(self):
         """
         verify_request_common succeeds on valid request via proxy
         """
@@ -139,11 +136,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             self.generate_oauth_request(url_to_sign=orig_url)
         )
 
-        ret = await verify_request_common(consumers, url, method,
-                                          headers, verify_params)
+        ret = verify_request_common(consumers, url, method,
+                                    headers, verify_params)
         self.assertTrue(ret)
 
-    async def test_verify_request_common_via_proxy_wsgi_syntax(self):
+    def test_verify_request_common_via_proxy_wsgi_syntax(self):
         """
         verify_request_common succeeds on valid request via proxy with
         wsgi syntax for headers
@@ -155,11 +152,11 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             self.generate_oauth_request(url_to_sign=orig_url)
         )
 
-        ret = await verify_request_common(consumers, url, method,
-                                          headers, verify_params)
+        ret = verify_request_common(consumers, url, method,
+                                    headers, verify_params)
         self.assertTrue(ret)
 
-    async def test_verify_request_common_no_oauth_fields(self):
+    def test_verify_request_common_no_oauth_fields(self):
         """
         verify_request_common fails on missing authentication
         """
@@ -168,9 +165,9 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
             self.generate_oauth_request()
         )
         with self.assertRaises(LTIException):
-            await verify_request_common(consumers, url, method, headers, params)
+            verify_request_common(consumers, url, method, headers, params)
 
-    async def test_verify_request_common_no_params(self):
+    def test_verify_request_common_no_params(self):
         """
         verify_request_common fails on missing parameters
         """
@@ -182,7 +179,7 @@ edge.edx.org-i4x-StarX-StarX_DEMO-lti-40559041895b4065b2818c23b9cd9da8\
         headers = dict()
         params = dict()
         with self.assertRaises(LTIException):
-            await verify_request_common(consumers, url, method, headers, params)
+            verify_request_common(consumers, url, method, headers, params)
 
     @httpretty.activate
     async def test_post_response_invalid_xml(self):

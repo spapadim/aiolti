@@ -8,11 +8,13 @@ from __future__ import absolute_import
 import asyncio
 from functools import partial
 
+from abc import ABC, abstractmethod
+
 import logging
 import json
-import oauth2
 from xml.etree import ElementTree as etree
 
+import oauth2
 from oauth2 import STRING_TYPES
 from six.moves.urllib.parse import urlparse, urlencode
 
@@ -53,13 +55,6 @@ LTI_ROLES = {
 LTI_SESSION_KEY = u'lti_authenticated'
 
 LTI_REQUEST_TYPE = [u'any', u'initial', u'session']
-
-
-async def default_error(exception=None):
-    """Render simple error page.  This should be overidden in applications."""
-    # pylint: disable=unused-argument
-    log.exception("There was an LTI communication error")
-    return "There was an LTI communication error", 500
 
 
 class LTIOAuthServer(oauth2.Server):
@@ -170,7 +165,7 @@ async def _post_patched_request(consumers, lti_key, body,
         client.add_certificate(key=lti_cert, cert=lti_cert, domain='')
         log.debug("cert %s", lti_cert)
 
-    import httplib2
+    import httplib2  # pylint: disable=import-outside-toplevel
 
     http = httplib2.Http
     # pylint: disable=protected-access
@@ -187,8 +182,10 @@ async def _post_patched_request(consumers, lti_key, body,
 
     http._normalize_headers = my_normalize
     monkey_patch_function = normalize
+    # oauth2 (not to be confused with python-oauth2) is a 5yr old library at this point...
+    # so, for async, we'll take the easy way out and run in default thread executor
     response, content = \
-        await asyncio.get_running_loop().run_in_executor(None, partial(client.request, 
+        await asyncio.get_running_loop().run_in_executor(None, partial(client.request,
             url,
             method,
             body=body.encode('utf-8'),
@@ -266,7 +263,7 @@ async def post_message2(consumers, lti_key, url, body,
     return is_success
 
 
-async def verify_request_common(consumers, url, method, headers, params):
+def verify_request_common(consumers, url, method, headers, params):
     """
     Verifies that request is valid
 
@@ -314,7 +311,7 @@ async def verify_request_common(consumers, url, method, headers, params):
         consumer = oauth_server.lookup_consumer(oauth_consumer_key)
         if not consumer:
             raise oauth2.Error('Invalid consumer.')
-        await oauth_server.verify_request(oauth_request, consumer, None)
+        oauth_server.verify_request(oauth_request, consumer, None)
     except oauth2.Error:
         # Rethrow our own for nice error handling (don't print
         # error message as it will contain the key
@@ -471,7 +468,7 @@ class Request_Fix_Duplicate(oauth2.Request):
         return encoded_str.replace('+', '%20').replace('%7E', '~')
 
 
-class LTIBase(object):
+class LTIBase(ABC):
     """
     LTI Object represents abstraction of current LTI session. It provides
     callback methods and methods that allow developer to inspect
@@ -499,6 +496,33 @@ class LTIBase(object):
         else:
             return ''
 
+    # @property
+    # @abstractmethod
+    # def session(self):
+    #     pass
+
+    # @property
+    # @abstractmethod
+    # def response_url(self):
+    #     pass
+
+    # @property
+    # @abstractmethod
+    # def _consumers(self):
+    #     pass
+
+    @abstractmethod
+    def _verify_session(self):
+        pass
+
+    @abstractmethod
+    async def _verify_any(self):
+        pass
+
+    @abstractmethod
+    async def _verify_request(self):
+        pass
+
     async def verify(self):
         """
         Verify if LTI request is valid, validation
@@ -508,9 +532,9 @@ class LTIBase(object):
         """
         log.debug('verify request=%s', self.lti_kwargs.get('request'))
         if self.lti_kwargs.get('request') == 'session':
-            await self._verify_session()
+            self._verify_session()
         elif self.lti_kwargs.get('request') == 'initial':
-            await self.verify_request()
+            await self._verify_request()
         elif self.lti_kwargs.get('request') == 'any':
             await self._verify_any()
         else:
@@ -561,7 +585,7 @@ class LTIBase(object):
         """
         return self.session.get('roles')
 
-    @staticmethod
+    # XXX WTH is this a @staticmethod ?? - spapadim
     def is_role(self, role):
         """
         Verify if user is in role
@@ -597,7 +621,8 @@ class LTIBase(object):
         log.debug(
             "check_role lti_role=%s decorator_role=%s", self.role, role
         )
-        if not (role == u'any' or self.is_role(self, role)):
+        # if not (role == u'any' or self.is_role(self, role)):   # XXX WTH - spapadim
+        if not (role == u'any' or self.is_role(role)):
             raise LTIRoleException('Not authorized.')
 
     async def post_grade(self, grade):
