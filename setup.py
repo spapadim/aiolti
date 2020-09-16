@@ -119,7 +119,7 @@ except ImportError as err:
 
 VERSION = __import__('aiolti').__version__
 
-README = open('README.rst').read()
+README = open('README.md').read()
 
 setup(
     name='aioLTI',
