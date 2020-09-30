@@ -20,7 +20,7 @@ from .common import (
 )
 
 
-log = logging.getLogger('aiolti.quart')  # pylint: disable=invalid-name
+log = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class LTIRequestError(BadRequest):
@@ -41,6 +41,11 @@ class LTI(LTIBase):
 
     This object is instantiated by @lti wrapper.
     """
+
+    # XXX By allowing each @lti decoration to specify it's own lti property list,
+    #   it's possible that session keys are improperly cleared, if those lists
+    #   aren't always the same throughout webapp...
+    #   But, this will do for now (too much cruft in original code).
 
     def __init__(self, lti_args, lti_kwargs):
         self.session = session
@@ -80,7 +85,7 @@ class LTI(LTIBase):
 
             # All good to go, store all of the LTI params into a
             # session dict for use in views
-            for prop in LTI_PROPERTY_LIST:
+            for prop in self.lti_kwargs.get('property_list', LTI_PROPERTY_LIST):
                 if params.get(prop, None):
                     log.debug("params %s=%s", prop, params.get(prop, None))
                     session[prop] = params[prop]
@@ -90,7 +95,7 @@ class LTI(LTIBase):
             return True
         except LTIException:
             log.debug('_verify_request failed')
-            for prop in LTI_PROPERTY_LIST:
+            for prop in self.lti_kwargs.get('property_list', LTI_PROPERTY_LIST):
                 if session.get(prop, None):
                     del session[prop]
 
@@ -134,7 +139,7 @@ class LTI(LTIBase):
             if params.get("lti_message_type", None) == initiation:
                 newrequest = True
                 # Scrub the session of the old authentication
-                for prop in LTI_PROPERTY_LIST:
+                for prop in self.lti_kwargs.get('property_list', LTI_PROPERTY_LIST):
                     if session.get(prop, None):
                         del session[prop]
                 session[LTI_SESSION_KEY] = False
@@ -146,8 +151,7 @@ class LTI(LTIBase):
         else:
             self._verify_session()
 
-    @staticmethod
-    def _verify_session():
+    def _verify_session(self):
         """
         Verify that session was already created
 
@@ -157,12 +161,11 @@ class LTI(LTIBase):
             log.debug('verify_session failed')
             raise LTINotInSessionException('Session expired or unavailable')
 
-    @staticmethod
-    def close_session():
+    def close_session(self):
         """
         Invalidates session
         """
-        for prop in LTI_PROPERTY_LIST:
+        for prop in self.lti_kwargs.get('property_list', LTI_PROPERTY_LIST):
             if session.get(prop, None):
                 del session[prop]
         session[LTI_SESSION_KEY] = False

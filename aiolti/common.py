@@ -18,7 +18,7 @@ import oauth2
 from oauth2 import STRING_TYPES
 from six.moves.urllib.parse import urlparse, urlencode
 
-log = logging.getLogger('pylti.common')  # pylint: disable=invalid-name
+log = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 LTI_PROPERTY_LIST = [
     'oauth_consumer_key',
