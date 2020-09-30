@@ -147,7 +147,7 @@ class LTI(LTIBase):
         # Attempt the appropriate validation
         # Both of these methods raise LTIException as necessary
         if newrequest:
-            self._verify_request()
+            await self._verify_request()
         else:
             self._verify_session()
 
